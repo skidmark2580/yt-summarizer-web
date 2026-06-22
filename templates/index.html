@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>유튜브 AI 요약</title>
+<style>
+  :root{
+    --bg:#0f1115; --bg-card:#171a21; --bg-sub:#1d212a;
+    --border:#2a2f3a; --border-soft:#23262f;
+    --text:#eef0f3; --text-sub:#9aa3b2; --text-dim:#6b7282;
+    --accent:#6ea8ff; --accent-soft:#1c2a44;
+    --danger:#ff6b6b; --danger-bg:#3a1f22;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Pretendard,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:2.5rem 1.25rem;
+  }
+  .wrap{max-width:720px;margin:0 auto}
+
+  .hero{text-align:center;margin-bottom:2rem}
+  .hero h1{font-size:26px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:10px}
+  .hero p{font-size:14px;color:var(--text-sub)}
+
+  .input-card{
+    background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:1.25rem;margin-bottom:1.25rem;
+  }
+  .url-row{display:flex;gap:8px;flex-wrap:wrap}
+  .url-row input{
+    flex:1;min-width:200px;height:46px;padding:0 16px;font-size:15px;
+    border-radius:10px;border:1px solid var(--border);
+    background:var(--bg-sub);color:var(--text);outline:none;
+  }
+  .url-row input:focus{border-color:var(--accent)}
+  .url-row input::placeholder{color:var(--text-dim)}
+  .url-row button{
+    height:46px;padding:0 22px;font-size:15px;font-weight:600;
+    border-radius:10px;border:none;background:var(--accent);color:#0b1220;
+    cursor:pointer;white-space:nowrap;
+  }
+  .url-row button:disabled{opacity:0.5;cursor:not-allowed}
+  .url-row button:hover:not(:disabled){filter:brightness(1.08)}
+
+  .progress{display:none;margin-top:1rem;display:flex;flex-direction:column;gap:6px}
+  .p-step{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:var(--bg-sub);font-size:13px;color:var(--text-sub)}
+  .p-step.active{color:var(--text);border:1px solid var(--accent-soft);background:var(--accent-soft)}
+  .p-step.done{color:#7ee0a6}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);flex-shrink:0}
+  .p-step.active .dot{background:var(--accent);animation:pulse 1s infinite}
+  .p-step.done .dot{background:#7ee0a6}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .err{display:none;margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--danger-bg);border:1px solid #5a2a2e;color:var(--danger);font-size:13px;line-height:1.6}
+
+  .result{display:none;margin-top:1.5rem}
+  .meta{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;background:var(--bg-card)}
+  .meta img{width:104px;height:58px;border-radius:8px;object-fit:cover;background:var(--bg-sub);flex-shrink:0}
+  .meta-title{font-size:15px;font-weight:600;margin-bottom:5px}
+  .meta-sub a{color:var(--text-sub);font-size:12px;text-decoration:none}
+  .meta-sub a:hover{color:var(--accent)}
+
+  .card{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;background:var(--bg-card);overflow:hidden}
+  .card-hdr{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft)}
+  .card-title{font-size:14px;font-weight:600}
+  .card-body{padding:15px 16px;font-size:14px;line-height:1.75;color:var(--text)}
+
+  .cp{font-size:12px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-sub);cursor:pointer}
+  .cp:hover{background:var(--bg-sub);color:var(--text)}
+
+  .three-item{display:flex;gap:10px;align-items:flex-start;padding:5px 0}
+  .num{font-size:11px;padding:2px 7px;background:var(--bg-sub);border:1px solid var(--border);border-radius:5px;color:var(--text-sub);flex-shrink:0;font-family:monospace;margin-top:3px}
+
+  .ch-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-soft)}
+  .ch-item:last-child{border-bottom:none}
+  .ts{font-size:11px;font-family:monospace;padding:3px 8px;border-radius:6px;background:var(--bg-sub);color:var(--text-sub);border:1px solid var(--border);white-space:nowrap;align-self:flex-start;margin-top:2px;flex-shrink:0}
+  .ch-title{font-weight:600;font-size:14px;margin-bottom:3px}
+  .ch-sum{font-size:13px;color:var(--text-sub);line-height:1.6}
+  .ch-kp{margin-top:5px;font-size:13px}
+
+  .sc-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-soft)}
+  .sc-item:last-child{border-bottom:none}
+  .sc-num{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--bg-sub);color:var(--text-sub);border:1px solid var(--border);flex-shrink:0;margin-top:2px;font-family:monospace}
+  .sc-title{font-size:14px;font-weight:600;margin-bottom:3px}
+  .sc-sub{font-size:13px;color:var(--text-sub)}
+
+  .kw-wrap{display:flex;flex-wrap:wrap;gap:7px}
+  .kw{font-size:13px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);color:var(--text-sub);background:var(--bg-sub)}
+
+  .badge{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--bg-sub);color:var(--text-sub);border:1px solid var(--border)}
+
+  .reset-btn{margin-top:6px;width:100%;padding:11px;font-size:14px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-sub);cursor:pointer}
+  .reset-btn:hover{background:var(--bg-sub);color:var(--text)}
+
+  .footer-note{text-align:center;margin-top:2rem;font-size:12px;color:var(--text-dim)}
+
+  @media(max-width:480px){
+    .url-row{flex-direction:column}
+    .url-row button{width:100%}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>▶ 유튜브 AI 요약</h1>
+      <p>URL만 붙여넣으면 자막 추출부터 분석까지 자동으로</p>
+    </div>
+
+    <div class="input-card">
+      <div class="url-row">
+        <input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=... 또는 youtu.be/...">
+        <button id="runBtn" onclick="run()">✦ 요약하기</button>
+      </div>
+
+      <div class="progress" id="progress">
+        <div class="p-step" id="step1"><div class="dot"></div><span>자막 추출 중...</span></div>
+        <div class="p-step" id="step2"><div class="dot"></div><span>AI 분석 중...</span></div>
+      </div>
+
+      <div class="err" id="errBox"></div>
+    </div>
+
+    <div class="result" id="result">
+      <div class="meta" id="metaCard"></div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">⚡ 핵심 3줄 요약</div>
+          <button class="cp" onclick="cp('three')">복사</button>
+        </div>
+        <div class="card-body" id="three"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">▤ 챕터별 구조 요약</div>
+          <button class="cp" onclick="cp('chapters')">복사</button>
+        </div>
+        <div class="card-body" id="chapters"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">✂ 쇼츠 편집 가이드</div>
+          <span class="badge">구간 추천 3개</span>
+        </div>
+        <div class="card-body" id="shorts"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">◆ 핵심 키워드</div>
+          <button class="cp" onclick="cp('keywords')">복사</button>
+        </div>
+        <div class="card-body" id="keywords"></div>
+      </div>
+
+      <button class="reset-btn" onclick="resetAll()">↺ 다른 영상 요약하기</button>
+    </div>
+
+    <div class="footer-note">YouTube AI Summarizer · 개인용</div>
+  </div>
+
+<script>
+function setStep(n, state){
+  const el = document.getElementById('step'+n);
+  el.className = 'p-step ' + state;
+  if(state==='done'){
+    const labels = ['자막 추출 완료','AI 분석 완료'];
+    el.querySelector('span').textContent = labels[n-1];
+  }
+}
+function showErr(msg){
+  const e = document.getElementById('errBox');
+  e.style.display = 'block';
+  e.textContent = msg;
+}
+function hideErr(){ document.getElementById('errBox').style.display='none'; }
+function cp(id){
+  navigator.clipboard.writeText(document.getElementById(id).innerText).catch(()=>{});
+}
+function resetAll(){
+  document.getElementById('result').style.display='none';
+  document.getElementById('progress').style.display='none';
+  document.getElementById('errBox').style.display='none';
+  document.getElementById('urlInput').value='';
+  document.getElementById('runBtn').disabled=false;
+  ['step1','step2'].forEach(id=>{ document.getElementById(id).className='p-step'; });
+  document.getElementById('step1').querySelector('span').textContent='자막 추출 중...';
+  document.getElementById('step2').querySelector('span').textContent='AI 분석 중...';
+}
+
+function renderResult(d, videoId){
+  document.getElementById('result').style.display='block';
+  const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '';
+
+  document.getElementById('metaCard').innerHTML = `
+    ${thumb ? `<img src="${thumb}" onerror="this.style.display='none'">` : ''}
+    <div>
+      <div class="meta-title">${d.title || '요약 완료'}</div>
+      <div class="meta-sub">
+        <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank">원본 영상 보기 ↗</a>
+      </div>
+    </div>`;
+
+  document.getElementById('three').innerHTML = d.three_lines.map((s,i)=>`
+    <div class="three-item"><span class="num">${i+1}</span><span>${s}</span></div>`).join('');
+
+  document.getElementById('chapters').innerHTML = d.chapters.map(c=>`
+    <div class="ch-item">
+      <span class="ts">${c.timestamp_guide}</span>
+      <div>
+        <div class="ch-title">${c.title}</div>
+        <div class="ch-sum">${c.summary}</div>
+        <div class="ch-kp">💡 ${c.key_point}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('shorts').innerHTML = d.shorts_cuts.map(s=>`
+    <div class="sc-item">
+      <span class="sc-num">${s.label}</span>
+      <div>
+        <div class="sc-title">${s.title}</div>
+        <div class="sc-sub">${s.timestamp_guide} — ${s.reason}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('keywords').innerHTML =
+    `<div class="kw-wrap">${d.keywords.map(k=>`<span class="kw">${k}</span>`).join('')}</div>`;
+}
+
+async function run(){
+  hideErr();
+  document.getElementById('result').style.display='none';
+  const url = document.getElementById('urlInput').value.trim();
+  if(!url){ showErr('유튜브 URL을 입력해주세요.'); return; }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('progress').style.display = 'flex';
+  setStep(1,'active'); setStep(2,'');
+
+  try{
+    const res = await fetch('/api/summarize', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+
+    setStep(1,'done'); setStep(2,'active');
+
+    const data = await res.json();
+    if(!res.ok){
+      throw new Error(data.error || '알 수 없는 오류가 발생했습니다.');
+    }
+
+    setStep(2,'done');
+    await new Promise(r=>setTimeout(r,200));
+    renderResult(data, data.video_id);
+  }catch(e){
+    showErr('오류: ' + e.message);
+    document.getElementById('progress').style.display='none';
+  }
+  document.getElementById('runBtn').disabled = false;
+}
+
+document.getElementById('urlInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') run();
+});
+</script>
+</body>
+</html>
