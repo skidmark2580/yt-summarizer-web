@@ -3,7 +3,6 @@ import os
 import re
 import json
 import urllib.request
-import urllib.error
 from flask import Flask, request, jsonify, render_template
 import anthropic
  
@@ -16,10 +15,17 @@ def extract_video_id(url):
  
  
 def fetch_via_supadata(video_id):
-    """Supadata 무료 API로 자막 추출"""
+    """Supadata API 키 인증으로 자막 추출"""
+    api_key = os.environ.get('SUPADATA_API_KEY', '')
     api_url = f"https://api.supadata.ai/v1/youtube/transcript?videoId={video_id}&text=true"
-    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            'x-api-key': api_key,
+            'User-Agent': 'Mozilla/5.0'
+        }
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
         data = json.loads(resp.read().decode())
     content = data.get('content')
     if not content:
@@ -29,8 +35,8 @@ def fetch_via_supadata(video_id):
     return ' '.join([s.get('text', '') for s in content])
  
  
-def fetch_via_youtube_transcript_api(video_id):
-    """youtube-transcript-api 로 자막 추출"""
+def fetch_via_youtube_api(video_id):
+    """youtube-transcript-api 폴백"""
     from youtube_transcript_api import YouTubeTranscriptApi
     api = YouTubeTranscriptApi()
     for langs in [['ko'], ['en'], None]:
@@ -43,14 +49,21 @@ def fetch_via_youtube_transcript_api(video_id):
  
  
 def fetch_transcript(video_id):
-    """Supadata 먼저 시도 → 실패 시 youtube-transcript-api 폴백"""
+    """Supadata 먼저 → 실패 시 youtube-transcript-api"""
+    errors = []
     try:
         text = fetch_via_supadata(video_id)
         return text, 'supadata'
-    except Exception:
-        pass
-    text = fetch_via_youtube_transcript_api(video_id)
-    return text, 'yt-api'
+    except Exception as e:
+        errors.append(f"supadata: {e}")
+ 
+    try:
+        text = fetch_via_youtube_api(video_id)
+        return text, 'yt-api'
+    except Exception as e:
+        errors.append(f"yt-api: {e}")
+ 
+    raise Exception(" | ".join(errors))
  
  
 def build_prompt(transcript):
