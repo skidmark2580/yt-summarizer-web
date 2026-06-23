@@ -1,11 +1,8 @@
-
 import os
 import re
 import json
 import urllib.request
 from flask import Flask, request, jsonify, render_template
-import anthropic
- 
 app = Flask(__name__)
  
  
@@ -118,12 +115,13 @@ def summarize():
     if not api_key:
         return jsonify({'error': '서버에 ANTHROPIC_API_KEY가 설정되어 있지 않습니다.'}), 500
  
+    import anthropic
     client = anthropic.Anthropic(api_key=api_key)
  
     try:
         msg = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
+            max_tokens=2048,
             messages=[{"role": "user", "content": build_prompt(transcript)}]
         )
         raw = "".join([b.text for b in msg.content if b.type == "text"])
